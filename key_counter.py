@@ -63,6 +63,7 @@ class KeyboardHeatmap(QWidget):
         self.base_height = 400
         self.is_pinned = True
 
+
         self.setWindowTitle(f"键盘热力图 - {self.stats.current_date}")
         self.setFixedSize(int(self.base_width * self.scale_factor), int(self.base_height * self.scale_factor))
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
@@ -156,7 +157,7 @@ class KeyboardHeatmap(QWidget):
         painter.save()
         painter.scale(self.scale_factor, self.scale_factor)
 
-        layout = [  # 完整键盘布局（同之前）
+        layout = [  # 完整键盘布局
             ("esc", 20, 20, 48, 42, "Esc"), ("f1", 85, 20, 42, 42, "F1"), ("f2", 130, 20, 42, 42, "F2"),
             ("f3", 175, 20, 42, 42, "F3"), ("f4", 220, 20, 42, 42, "F4"), ("f5", 275, 20, 42, 42, "F5"),
             ("f6", 320, 20, 42, 42, "F6"), ("f7", 365, 20, 42, 42, "F7"), ("f8", 410, 20, 42, 42, "F8"),
@@ -177,13 +178,13 @@ class KeyboardHeatmap(QWidget):
             ("h", 333, 175, 42, 42, "H"), ("j", 380, 175, 42, 42, "J"), ("k", 427, 175, 42, 42, "K"),
             ("l", 474, 175, 42, 42, "L"), (";", 521, 175, 42, 42, ";"), ("'", 568, 175, 42, 42, "'"),
             ("enter", 615, 175, 95, 42, "Enter"),
-            ("shift_l", 20, 225, 92, 42, "Shift"), ("z", 118, 225, 42, 42, "Z"), ("x", 165, 225, 42, 42, "X"),
+            ("shift", 20, 225, 92, 42, "Shift"), ("z", 118, 225, 42, 42, "Z"), ("x", 165, 225, 42, 42, "X"),
             ("c", 212, 225, 42, 42, "C"), ("v", 259, 225, 42, 42, "V"), ("b", 306, 225, 42, 42, "B"),
             ("n", 353, 225, 42, 42, "N"), ("m", 400, 225, 42, 42, "M"), (",", 447, 225, 42, 42, ","),
             (".", 494, 225, 42, 42, "."), ("/", 541, 225, 42, 42, "/"), ("shift_r", 588, 225, 122, 42, "Shift"),
-            ("ctrl_l", 20, 275, 55, 42, "Ctrl"), ("win", 80, 275, 55, 42, "Win"),
+            ("ctrl_l", 20, 275, 55, 42, "Ctrl"), ("cmd", 80, 275, 55, 42, "Win"),
             ("alt_l", 140, 275, 55, 42, "Alt"), ("space", 200, 275, 220, 42, "空格"),
-            ("alt_r", 425, 275, 55, 42, "Alt"), ("ctrl_r", 485, 275, 55, 42, "Ctrl"),
+            ("alt_gr", 425, 275, 55, 42, "Alt"), ("ctrl_r", 485, 275, 55, 42, "Ctrl"),
             ("left", 555, 275, 42, 42, "←"), ("up", 602, 275, 42, 42, "↑"),
             ("down", 602, 320, 42, 42, "↓"), ("right", 649, 275, 42, 42, "→"),
         ]
@@ -224,20 +225,61 @@ class KeyboardHeatmap(QWidget):
 
 
 def start_listeners(stats):
+    currently_pressed = set()           # 记录当前物理按下的键
+
     def on_press(key):
         try:
-            kname = key.char.lower() if hasattr(key, 'char') and key.char else str(key).replace("Key.", "").lower()
-            stats.increment_key(kname)
-        except:
-            pass
+            # 统一键名处理
+            if hasattr(key, 'char') and key.char:
+                kname = key.char.lower()
+            else:
+                kname = str(key).replace("Key.", "").lower()
+
+            # 第一次按下才加入（防止重复触发）
+            if kname not in currently_pressed:
+                currently_pressed.add(kname)
+                print(f"按下 → {kname}")
+
+        except Exception as e:
+            print("on_press error:", e)
+
+    def on_release(key):
+        try:
+            if hasattr(key, 'char') and key.char:
+                kname = key.char.lower()
+            else:
+                kname = str(key).replace("Key.", "").lower()
+
+            if kname in currently_pressed:
+                currently_pressed.remove(kname)
+                print(f"释放 → {kname}  计次+1")
+                stats.increment_key(kname)
+
+        except Exception as e:
+            print("on_release error:", e)
 
     def on_click(x, y, button, pressed):
         if pressed:
+            btn_name = str(button).split('.')[-1]
+            print(f"鼠标按下: {btn_name}")
             stats.increment_mouse(button)
 
-    with pynput_keyboard.Listener(on_press=on_press) as k, pynput_mouse.Listener(on_click=on_click) as m:
-        k.join()
-        m.join()
+    # 键盘监听器：同时监听 press 和 release
+    keyboard_listener = pynput_keyboard.Listener(
+        on_press=on_press,
+        on_release=on_release
+    )
+
+    mouse_listener = pynput_mouse.Listener(
+        on_click=on_click
+    )
+
+    keyboard_listener.start()
+    mouse_listener.start()
+
+    # 阻塞等待（通常放最后）
+    keyboard_listener.join()
+    mouse_listener.join()
 
 
 if __name__ == "__main__":

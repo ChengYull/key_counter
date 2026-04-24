@@ -1,6 +1,17 @@
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
+import os
+import sys
+
+
+def get_asset_path(filename):
+    """获取资源文件路径，支持打包后的 exe"""
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(base_path, 'assets', filename)
 
 
 KEYBOARD_LAYOUT = [
@@ -46,6 +57,11 @@ class KeyboardHeatmap(QWidget):
         self.is_pinned = True
 
         self.setWindowTitle(f"键盘热力图 - {self.stats.current_date}")
+
+        icon_path = get_asset_path('keyboard.ico')
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
         self.setFixedSize(int(self.base_width * self.scale_factor), int(self.base_height * self.scale_factor))
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -125,6 +141,11 @@ class KeyboardHeatmap(QWidget):
 
     def mouseReleaseEvent(self, event):
         self.dragging = False
+
+    def closeEvent(self, event):
+        # 隐藏到托盘而不是关闭
+        event.ignore()
+        self.hide()
 
     def paintEvent(self, event):
         painter = QPainter(self)

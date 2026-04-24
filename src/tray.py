@@ -62,6 +62,7 @@ class SystemTray:
     def __init__(self, window, stats):
         self.window = window
         self.stats = stats
+        self.chart_window = None  # 保持引用
 
         icon_path = get_asset_path('keyboard.ico')
         print(f"[DEBUG] 托盘图标路径: {icon_path}")
@@ -104,6 +105,10 @@ class SystemTray:
         self.action_stats = QAction("今日统计")
         self.action_stats.triggered.connect(self.show_stats)
         self.menu.addAction(self.action_stats)
+
+        self.action_chart = QAction("统计图表")
+        self.action_chart.triggered.connect(self.show_chart)
+        self.menu.addAction(self.action_chart)
 
         self.menu.addSeparator()
 
@@ -160,13 +165,19 @@ class SystemTray:
             msg += f"  {key}: {count:,}\n"
 
         print(f"[DEBUG] show_stats 被调用，消息: {msg}")
-        # 使用 window 作为父窗口，避免关闭弹窗时程序退出
         msg_box = QMessageBox(self.window)
         msg_box.setWindowTitle("键盘热力图 - 今日统计")
         msg_box.setText(msg.strip())
         msg_box.setIcon(QMessageBox.Icon.Information)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.exec()
+
+    def show_chart(self):
+        if self.chart_window is None or not self.chart_window.isVisible():
+            from src.stats_chart import StatsChartWindow
+            self.chart_window = StatsChartWindow(self.stats)
+        self.chart_window.show()
+        self.chart_window.activateWindow()
 
     def quit(self):
         self.window.show()  # 先显示窗口以便正常关闭

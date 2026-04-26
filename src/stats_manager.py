@@ -1,11 +1,31 @@
-# type: ignore
-
 import datetime
 import json
+from typing import Any
 
 
 class StatsManager:
-    def __init__(self):
+    # pynput 鼠标按钮名称映射到热力图按键名称
+    MOUSE_BUTTON_MAP: dict[str, str] = {
+        "left": "left",
+        "right": "right",
+        "middle": "wheel",
+        "x1": "side1",
+        "x2": "side2",
+    }
+
+    # TODO: 感觉 minute_stats 和 daily_stats 可以用具名类当结构体替换，就几个字段呢，而且这样没有 Any（
+    daily_stats: dict[str, dict[str, dict[str, int]]]
+    minute_stats: dict[
+        str, dict[str, Any]
+    ]  # date -> {"minutes": dict[str,int], "minute_distance": dict[str,int], "total": int, "total_distance": int}
+    current_date: str
+    current_minute: int
+    keyboard_counts: dict[str, int]
+    mouse_counts: dict[str, int]
+    today_minutes: dict[str, int]
+    today_minute_distance: dict[str, int]
+
+    def __init__(self) -> None:
         self.daily_stats = {}  # "YYYY-MM-DD": {"keyboard": dict, "mouse": dict}
         self.minute_stats = (
             {}
@@ -16,12 +36,12 @@ class StatsManager:
         self.ensure_today()
         self.ensure_today_minute()
 
-    def _get_current_minute(self):
+    def _get_current_minute(self) -> int:
         """获取当前分钟索引 (0-1439)"""
         now = datetime.datetime.now()
         return now.hour * 60 + now.minute
 
-    def ensure_today(self):
+    def ensure_today(self) -> None:
         if self.current_date not in self.daily_stats:
             self.daily_stats[self.current_date] = {"keyboard": {}, "mouse": {}}
         if "move_distance" not in self.daily_stats[self.current_date]["mouse"]:
@@ -29,7 +49,7 @@ class StatsManager:
         self.keyboard_counts = self.daily_stats[self.current_date]["keyboard"]
         self.mouse_counts = self.daily_stats[self.current_date]["mouse"]
 
-    def ensure_today_minute(self):
+    def ensure_today_minute(self) -> None:
         """确保今日分时统计数据存在"""
         if self.current_date not in self.minute_stats:
             self.minute_stats[self.current_date] = {
@@ -43,22 +63,13 @@ class StatsManager:
             "minute_distance"
         ]
 
-    def increment_key(self, key_name: str):
+    def increment_key(self, key_name: str) -> None:
         self.check_date_change()
         self.keyboard_counts[key_name] = self.keyboard_counts.get(key_name, 0) + 1
         self._increment_minute()
         self.save()
 
-    # pynput 鼠标按钮名称映射到热力图按键名称
-    MOUSE_BUTTON_MAP = {
-        "left": "left",
-        "right": "right",
-        "middle": "wheel",
-        "x1": "side1",
-        "x2": "side2",
-    }
-
-    def increment_mouse(self, button):
+    def increment_mouse(self, button: Any) -> None:
         self.check_date_change()
         btn_str = str(button).split(".")[-1].lower()
         key_name = self.MOUSE_BUTTON_MAP.get(btn_str, btn_str)
@@ -68,28 +79,29 @@ class StatsManager:
         self._increment_minute()
         self.save()
 
-    def increment_move_distance(self, distance: int):
+    def increment_move_distance(self, distance: int) -> None:
         """增加移动距离（像素）"""
         self.check_date_change()
         self.check_minute_change()
         self.mouse_counts["move_distance"] = (
             self.mouse_counts.get("move_distance", 0) + distance
         )
-        self.today_minute_distance[self.current_minute] = (
-            self.today_minute_distance.get(self.current_minute, 0) + distance
+        key = str(self.current_minute)
+        self.today_minute_distance[key] = (
+            self.today_minute_distance.get(key, 0) + distance
         )
         self.minute_stats[self.current_date]["total_distance"] += distance
         self.save()
 
-    def _increment_minute(self):
+    def _increment_minute(self) -> None:
         """增加当前分钟的计数"""
         self.check_minute_change()
-        self.today_minutes[self.current_minute] = (
-            self.today_minutes.get(self.current_minute, 0) + 1
-        )
+        key = str(self.current_minute)
+        self.today_minutes[key] = self.today_minutes.get(key, 0) + 1
         self.minute_stats[self.current_date]["total"] += 1
 
-    def check_date_change(self):
+    def check_date_change(self) -> None:
+        """检查日期是否变化"""
         today = datetime.date.today().isoformat()
         if today != self.current_date:
             self.current_date = today
@@ -97,38 +109,38 @@ class StatsManager:
             self.ensure_today()
             self.ensure_today_minute()
 
-    def check_minute_change(self):
+    def check_minute_change(self) -> None:
         """检查分钟是否变化"""
         current = self._get_current_minute()
         if current != self.current_minute:
             self.current_minute = current
 
-    def save(self):
+    def save(self) -> None:
         try:
             with open("keymouse_stats.json", "w", encoding="utf-8") as f:
                 json.dump(self.daily_stats, f, ensure_ascii=False, indent=2)
-        except:
-            pass
+        except Exception:
+            pass  # 噗
         try:
             with open("minute_stats.json", "w", encoding="utf-8") as f:
                 json.dump(self.minute_stats, f, ensure_ascii=False, indent=2)
-        except:
-            pass
+        except Exception:
+            pass  # 吞掉了
 
-    def load(self):
+    def load(self) -> None:
         try:
             with open("keymouse_stats.json", "r", encoding="utf-8") as f:
                 self.daily_stats = json.load(f)
-        except:
+        except Exception:
             self.daily_stats = {}
         try:
             with open("minute_stats.json", "r", encoding="utf-8") as f:
                 self.minute_stats = json.load(f)
-        except:
+        except Exception:
             self.minute_stats = {}
         self._recalculate_all_totals()
 
-    def _migrate_sparse(self, data):
+    def _migrate_sparse(self, data: dict[str, Any]) -> None:
         """将旧列表格式转为稀疏字典格式"""
         if isinstance(data.get("minutes"), list):
             data["minutes"] = {
@@ -139,7 +151,7 @@ class StatsManager:
                 str(i): v for i, v in enumerate(data["minute_distance"]) if v != 0
             }
 
-    def _recalculate_all_totals(self):
+    def _recalculate_all_totals(self) -> None:
         """迁移并重新计算所有日期的 total"""
         for _date_str, data in self.minute_stats.items():
             self._migrate_sparse(data)
@@ -150,7 +162,14 @@ class StatsManager:
             if "total_distance" not in data:
                 data["total_distance"] = sum(data.get("minute_distance", {}).values())
 
-    def get_minute_stats(self, date_str: str):
+    def _expand_minutes(self, sparse_dict: dict[str, int]) -> list[int]:
+        """展开稀疏表为 1440 项的数组"""
+        result = [0] * 1440
+        for k, v in sparse_dict.items():
+            result[int(k)] = v
+        return result
+
+    def get_minute_stats(self, date_str: str) -> dict[str, Any]:
         """获取指定日期的分时数据"""
         if date_str in self.minute_stats:
             data = self.minute_stats[date_str]
@@ -171,16 +190,9 @@ class StatsManager:
             "total_distance": 0,
         }
 
-    def _expand_minutes(self, sparse_dict):
-        """展开稀疏表为 1440 项的数组"""
-        result = [0] * 1440
-        for k, v in sparse_dict.items():
-            result[int(k)] = v
-        return result
-
-    def get_daily_totals(self, start_date: str, end_date: str):
+    def get_daily_totals(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
         """获取日期范围内的每日总按键数和移动距离"""
-        result = []
+        result: list[dict[str, Any]] = []
         start = datetime.date.fromisoformat(start_date)
         end = datetime.date.fromisoformat(end_date)
         current = start
@@ -201,6 +213,6 @@ class StatsManager:
             current += datetime.timedelta(days=1)
         return result
 
-    def get_total_move_distance(self):
+    def get_total_move_distance(self) -> int:
         """获取今日总移动距离（像素）"""
         return self.mouse_counts.get("move_distance", 0)

@@ -13,6 +13,7 @@ build/
 
 # PyQt / pynput runtime
 keymouse_stats.json
+minute_stats.json
 
 # IDE
 .idea/

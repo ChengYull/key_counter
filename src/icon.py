@@ -1,11 +1,21 @@
 import os
+import sys
 from PIL import Image, ImageDraw
+
+
+def get_asset_dir():
+    """获取资源文件目录"""
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(sys.executable), 'assets')
+    else:
+        return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 
 def generate_keyboard_icon():
     """生成键盘图标并保存为 .ico 文件（仅当不存在时）"""
-    icon_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'keyboard.ico')
-    icon_path = os.path.abspath(icon_path)
+    asset_dir = get_asset_dir()
+    os.makedirs(asset_dir, exist_ok=True)
+    icon_path = os.path.join(asset_dir, 'keyboard.ico')
 
     if os.path.exists(icon_path):
         print(f"图标已存在: {icon_path}")

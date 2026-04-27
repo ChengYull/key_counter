@@ -1,9 +1,22 @@
 import datetime
 import json
+import os
+import sys
+
+
+def get_data_dir():
+    """获取数据文件目录（程序所在目录）"""
+    if getattr(sys, 'frozen', False):
+        # 打包后的 exe，数据放在 exe 同目录
+        return os.path.dirname(sys.executable)
+    else:
+        # 开发环境，数据放在 main.py 同目录
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class StatsManager:
     def __init__(self):
+        self.data_dir = get_data_dir()
         self.daily_stats = {}                    # "YYYY-MM-DD": {"keyboard": dict, "mouse": dict}
         self.minute_stats = {}                   # "YYYY-MM-DD": {"minutes": [], "minute_distance": [], "total": int, "total_distance": int}
         self.current_date = datetime.date.today().isoformat()
@@ -93,24 +106,28 @@ class StatsManager:
 
     def save(self):
         try:
-            with open("keymouse_stats.json", "w", encoding="utf-8") as f:
+            keymouse_path = os.path.join(self.data_dir, "keymouse_stats.json")
+            with open(keymouse_path, "w", encoding="utf-8") as f:
                 json.dump(self.daily_stats, f, ensure_ascii=False, indent=2)
         except:
             pass
         try:
-            with open("minute_stats.json", "w", encoding="utf-8") as f:
+            minute_path = os.path.join(self.data_dir, "minute_stats.json")
+            with open(minute_path, "w", encoding="utf-8") as f:
                 json.dump(self.minute_stats, f, ensure_ascii=False, indent=2)
         except:
             pass
 
     def load(self):
         try:
-            with open("keymouse_stats.json", "r", encoding="utf-8") as f:
+            keymouse_path = os.path.join(self.data_dir, "keymouse_stats.json")
+            with open(keymouse_path, "r", encoding="utf-8") as f:
                 self.daily_stats = json.load(f)
         except:
             self.daily_stats = {}
         try:
-            with open("minute_stats.json", "r", encoding="utf-8") as f:
+            minute_path = os.path.join(self.data_dir, "minute_stats.json")
+            with open(minute_path, "r", encoding="utf-8") as f:
                 self.minute_stats = json.load(f)
         except:
             self.minute_stats = {}

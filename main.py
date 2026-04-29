@@ -1,7 +1,6 @@
 import sys
 import threading
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
 
 from src.stats_manager import StatsManager
 from src.heatmap import KeyboardHeatmap

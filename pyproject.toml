@@ -1,0 +1,12 @@
+[project]
+name = "key-counter"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib>=3.10.9",
+    "pillow>=12.2.0",
+    "pynput>=1.8.1",
+    "pyqt6>=6.11.0",
+]

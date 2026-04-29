@@ -25,6 +25,9 @@ if __name__ == "__main__":
     from src.tray import SystemTray
     _tray_instance = SystemTray(window, stats)
 
+    # 禁止最后一个窗口关闭时退出程序（托盘程序需要）
+    app.setQuitOnLastWindowClosed(False)
+
     window.show()
 
     threading.Timer(0.5, lambda: threading.Thread(target=start_listeners, args=(stats,), daemon=True).start()).start()

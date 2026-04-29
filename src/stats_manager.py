@@ -3,33 +3,33 @@ import json
 from typing import Any
 
 
-class StatsManager:
-    # pynput 鼠标按钮名称映射到热力图按键名称
-    MOUSE_BUTTON_MAP: dict[str, str] = {
-        "left": "left",
-        "right": "right",
-        "middle": "wheel",
-        "x1": "side1",
-        "x2": "side2",
-    }
-
-    # TODO: 感觉 minute_stats 和 daily_stats 可以用具名类当结构体替换，就几个字段呢，而且这样没有 Any（
-    daily_stats: dict[str, dict[str, dict[str, int]]]
-    minute_stats: dict[
-        str, dict[str, Any]
-    ]  # date -> {"minutes": dict[str,int], "minute_distance": dict[str,int], "total": int, "total_distance": int}
-    current_date: str
-    current_minute: int
-    keyboard_counts: dict[str, int]
-    mouse_counts: dict[str, int]
-    today_minutes: dict[str, int]
-    today_minute_distance: dict[str, int]
-
-    def __init__(self) -> None:
-        self.daily_stats = {}  # "YYYY-MM-DD": {"keyboard": dict, "mouse": dict}
-        self.minute_stats = (
-            {}
-        )  # "YYYY-MM-DD": {"minutes": {}, "minute_distance": {}, "total": int, "total_distance": int}
+# class StatsManager:
+#     # pynput 鼠标按钮名称映射到热力图按键名称
+#     MOUSE_BUTTON_MAP: dict[str, str] = {
+#         "left": "left",
+#         "right": "right",
+#         "middle": "wheel",
+#         "x1": "side1",
+#         "x2": "side2",
+#     }
+#
+#     # TODO: 感觉 minute_stats 和 daily_stats 可以用具名类当结构体替换，就几个字段呢，而且这样没有 Any（
+#     daily_stats: dict[str, dict[str, dict[str, int]]]
+#     minute_stats: dict[
+#         str, dict[str, Any]
+#     ]  # date -> {"minutes": dict[str,int], "minute_distance": dict[str,int], "total": int, "total_distance": int}
+#     current_date: str
+#     current_minute: int
+#     keyboard_counts: dict[str, int]
+#     mouse_counts: dict[str, int]
+#     today_minutes: dict[str, int]
+#     today_minute_distance: dict[str, int]
+#
+#     def __init__(self) -> None:
+#         self.daily_stats = {}  # "YYYY-MM-DD": {"keyboard": dict, "mouse": dict}
+#         self.minute_stats = (
+#             {}
+#         )  # "YYYY-MM-DD": {"minutes": {}, "minute_distance": {}, "total": int, "total_distance": int}
 import os
 import sys
 
@@ -45,6 +45,13 @@ def get_data_dir():
 
 
 class StatsManager:
+    MOUSE_BUTTON_MAP: dict[str, str] = {
+        "left": "left",
+        "right": "right",
+        "middle": "wheel",
+        "x1": "side1",
+        "x2": "side2",
+    }
     def __init__(self):
         self.data_dir = get_data_dir()
         self.daily_stats = {}                    # "YYYY-MM-DD": {"keyboard": dict, "mouse": dict}

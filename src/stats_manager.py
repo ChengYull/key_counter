@@ -55,7 +55,7 @@ class StatsManager:
     def __init__(self):
         self.data_dir = get_data_dir()
         self.daily_stats = {}                    # "YYYY-MM-DD": {"keyboard": dict, "mouse": dict}
-        self.minute_stats = {}                   # "YYYY-MM-DD": {"minutes": [], "minute_distance": [], "total": int, "total_distance": int}
+        self.minute_stats = {}                   # "YYYY-MM-DD": {"minutes": dict, "total": int}
         self.current_date = datetime.date.today().isoformat()
         self.current_minute = self._get_current_minute()
         self.load()
@@ -70,8 +70,6 @@ class StatsManager:
     def ensure_today(self) -> None:
         if self.current_date not in self.daily_stats:
             self.daily_stats[self.current_date] = {"keyboard": {}, "mouse": {}}
-        if "move_distance" not in self.daily_stats[self.current_date]["mouse"]:
-            self.daily_stats[self.current_date]["mouse"]["move_distance"] = 0
         self.keyboard_counts = self.daily_stats[self.current_date]["keyboard"]
         self.mouse_counts = self.daily_stats[self.current_date]["mouse"]
 
@@ -80,14 +78,9 @@ class StatsManager:
         if self.current_date not in self.minute_stats:
             self.minute_stats[self.current_date] = {
                 "minutes": {},
-                "minute_distance": {},
                 "total": 0,
-                "total_distance": 0,
             }
         self.today_minutes = self.minute_stats[self.current_date]["minutes"]
-        self.today_minute_distance = self.minute_stats[self.current_date][
-            "minute_distance"
-        ]
 
     def increment_key(self, key_name: str) -> None:
         self.check_date_change()
@@ -103,20 +96,6 @@ class StatsManager:
             return
         self.mouse_counts[key_name] = self.mouse_counts.get(key_name, 0) + 1
         self._increment_minute()
-        self.save()
-
-    def increment_move_distance(self, distance: int) -> None:
-        """增加移动距离（像素）"""
-        self.check_date_change()
-        self.check_minute_change()
-        self.mouse_counts["move_distance"] = (
-            self.mouse_counts.get("move_distance", 0) + distance
-        )
-        key = str(self.current_minute)
-        self.today_minute_distance[key] = (
-            self.today_minute_distance.get(key, 0) + distance
-        )
-        self.minute_stats[self.current_date]["total_distance"] += distance
         self.save()
 
     def _increment_minute(self) -> None:
@@ -162,6 +141,9 @@ class StatsManager:
                 self.daily_stats = json.load(f)
         except Exception:
             self.daily_stats = {}
+        # 兼容旧数据：移除已废弃的移动距离字段
+        for _daily in self.daily_stats.values():
+            _daily.get("mouse", {}).pop("move_distance", None)
         try:
             minute_path = os.path.join(self.data_dir, "minute_stats.json")
             with open(minute_path, "r", encoding="utf-8") as f:
@@ -176,10 +158,9 @@ class StatsManager:
             data["minutes"] = {
                 str(i): v for i, v in enumerate(data["minutes"]) if v != 0
             }
-        if isinstance(data.get("minute_distance"), list):
-            data["minute_distance"] = {
-                str(i): v for i, v in enumerate(data["minute_distance"]) if v != 0
-            }
+        # 兼容旧数据：移除已废弃的移动距离字段
+        data.pop("minute_distance", None)
+        data.pop("total_distance", None)
 
     def _recalculate_all_totals(self) -> None:
         """迁移并重新计算所有日期的 total"""
@@ -187,10 +168,6 @@ class StatsManager:
             self._migrate_sparse(data)
             if "minutes" in data:
                 data["total"] = sum(data.get("minutes", {}).values())
-            if "minute_distance" not in data:
-                data["minute_distance"] = {}
-            if "total_distance" not in data:
-                data["total_distance"] = sum(data.get("minute_distance", {}).values())
 
     def _expand_minutes(self, sparse_dict: dict[str, int]) -> list[int]:
         """展开稀疏表为 1440 项的数组"""
@@ -204,24 +181,17 @@ class StatsManager:
         if date_str in self.minute_stats:
             data = self.minute_stats[date_str]
             data["total"] = sum(data.get("minutes", {}).values())
-            data["total_distance"] = sum(data.get("minute_distance", {}).values())
             return {
                 "minutes": self._expand_minutes(data.get("minutes", {})),
-                "minute_distance": self._expand_minutes(
-                    data.get("minute_distance", {})
-                ),
                 "total": data["total"],
-                "total_distance": data["total_distance"],
             }
         return {
             "minutes": [0] * 1440,
-            "minute_distance": [0] * 1440,
             "total": 0,
-            "total_distance": 0,
         }
 
     def get_daily_totals(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
-        """获取日期范围内的每日总按键数和移动距离"""
+        """获取日期范围内的每日总按键数"""
         result: list[dict[str, Any]] = []
         start = datetime.date.fromisoformat(start_date)
         end = datetime.date.fromisoformat(end_date)
@@ -230,19 +200,13 @@ class StatsManager:
             date_str = current.isoformat()
             if date_str in self.minute_stats:
                 minutes = self.minute_stats[date_str].get("minutes", {})
-                minute_distance = self.minute_stats[date_str].get("minute_distance", {})
                 result.append(
                     {
                         "date": date_str,
                         "total": sum(minutes.values()),
-                        "total_distance": sum(minute_distance.values()),
                     }
                 )
             else:
-                result.append({"date": date_str, "total": 0, "total_distance": 0})
+                result.append({"date": date_str, "total": 0})
             current += datetime.timedelta(days=1)
         return result
-
-    def get_total_move_distance(self) -> int:
-        """获取今日总移动距离（像素）"""
-        return self.mouse_counts.get("move_distance", 0)

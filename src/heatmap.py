@@ -191,14 +191,12 @@ class KeyboardHeatmap(QWidget):
 
         # 底部统计信息
         keyboard_total = sum(self.stats.keyboard_counts.values())
-        mouse_click_total = sum(v for k, v in self.stats.mouse_counts.items() if k != "move_distance")
-        move_distance = self.stats.get_total_move_distance()
-        move_meters = move_distance * 26 / 100000  # 1000px ≈ 26cm = 0.026m
+        mouse_click_total = sum(self.stats.mouse_counts.values())
         font_size = max(9, int(12 * self.scale_factor))
         painter.setPen(QColor(230, 230, 230))
         painter.setFont(QFont("Microsoft YaHei", font_size))
         painter.drawText(35, self.height() - 12,
-            f"{self.stats.current_date}  |  键盘: {keyboard_total:,}  鼠标: {mouse_click_total:,}  移动: {move_distance:,}px ({move_meters:.2f}m)  |  {self.scale_factor:.1f}x")
+            f"{self.stats.current_date}  |  键盘: {keyboard_total:,}  鼠标: {mouse_click_total:,}  |  {self.scale_factor:.1f}x")
 
     def _paint_keyboard(self, painter):
         max_count = max(self.stats.keyboard_counts.values(), default=1)

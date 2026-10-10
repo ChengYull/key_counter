@@ -43,16 +43,6 @@ class StatsChartWindow(QWidget):
         toolbar.addWidget(self.time_type_label)
         toolbar.addWidget(self.time_type_combo)
 
-        # 数据类型选择
-        self.data_type_label = QLabel("数据类型:")
-        self.data_type_combo = QComboBox()
-        self.data_type_combo.addItems(["按键统计", "移动统计"])
-        self.data_type_combo.currentIndexChanged.connect(self.on_data_type_changed)
-        self.data_type = "key"
-
-        toolbar.addWidget(self.data_type_label)
-        toolbar.addWidget(self.data_type_combo)
-
         toolbar.addStretch()
 
         # 时间范围选择（分时统计用）
@@ -142,24 +132,10 @@ class StatsChartWindow(QWidget):
         self.daily_canvas = FigureCanvas(self.daily_figure)
         self.daily_ax = self.daily_figure.add_subplot(111)
 
-        # 分时移动图表
-        self.hourly_move_figure = Figure(figsize=(12, 5))
-        self.hourly_move_canvas = FigureCanvas(self.hourly_move_figure)
-        self.hourly_move_ax = self.hourly_move_figure.add_subplot(111)
-
-        # 每日移动图表
-        self.daily_move_figure = Figure(figsize=(12, 5))
-        self.daily_move_canvas = FigureCanvas(self.daily_move_figure)
-        self.daily_move_ax = self.daily_move_figure.add_subplot(111)
-
         self.chart_layout.addWidget(self.hourly_canvas)
         self.chart_layout.addWidget(self.daily_canvas)
-        self.chart_layout.addWidget(self.hourly_move_canvas)
-        self.chart_layout.addWidget(self.daily_move_canvas)
 
         self.daily_canvas.setVisible(False)
-        self.hourly_move_canvas.setVisible(False)
-        self.daily_move_canvas.setVisible(False)
 
         self.update_charts()
         self._show_current_chart()
@@ -178,10 +154,8 @@ class StatsChartWindow(QWidget):
 
     def _show_current_chart(self):
         """显示当前选择的图表"""
-        self.hourly_canvas.setVisible(self.time_type == "hourly" and self.data_type == "key")
-        self.hourly_move_canvas.setVisible(self.time_type == "hourly" and self.data_type == "move")
-        self.daily_canvas.setVisible(self.time_type == "daily" and self.data_type == "key")
-        self.daily_move_canvas.setVisible(self.time_type == "daily" and self.data_type == "move")
+        self.hourly_canvas.setVisible(self.time_type == "hourly")
+        self.daily_canvas.setVisible(self.time_type == "daily")
 
     def on_time_type_changed(self, index):
         self.time_type = "hourly" if index == 0 else "daily"
@@ -189,44 +163,28 @@ class StatsChartWindow(QWidget):
         self._show_current_chart()
         self.update_charts()
 
-    def on_data_type_changed(self, index):
-        self.data_type = "key" if index == 0 else "move"
-        self._show_current_chart()
-        self.update_charts()
-
     def on_date_changed(self):
-        if self.time_type == "hourly" and self.data_type == "key":
+        if self.time_type == "hourly":
             self.update_hourly_chart()
-        elif self.time_type == "hourly" and self.data_type == "move":
-            self.update_hourly_move_chart()
 
     def on_time_range_changed(self):
-        if self.time_type == "hourly" and self.data_type == "key":
+        if self.time_type == "hourly":
             self.update_hourly_chart()
-        elif self.time_type == "hourly" and self.data_type == "move":
-            self.update_hourly_move_chart()
 
     def on_range_changed(self, text):
         self.custom_range_widget.setVisible(text == "自定义")
-        if self.time_type == "daily" and self.data_type == "key":
+        if self.time_type == "daily":
             self.update_daily_chart()
-        elif self.time_type == "daily" and self.data_type == "move":
-            self.update_daily_move_chart()
 
     def on_custom_date_changed(self):
         """自定义日期范围变化时立即更新"""
         if self.time_type == "daily" and self.range_combo.currentText() == "自定义":
-            if self.data_type == "key":
-                self.update_daily_chart()
-            else:
-                self.update_daily_move_chart()
+            self.update_daily_chart()
 
     def update_charts(self):
         """更新所有图表"""
         self.update_hourly_chart()
         self.update_daily_chart()
-        self.update_hourly_move_chart()
-        self.update_daily_move_chart()
 
     def update_hourly_chart(self):
         if not HAS_MATPLOTLIB:
@@ -311,89 +269,6 @@ class StatsChartWindow(QWidget):
         self.daily_figure.tight_layout()
         self.daily_canvas.draw()
 
-    def update_hourly_move_chart(self):
-        if not HAS_MATPLOTLIB:
-            return
-
-        date_str = self.date_edit.date().toString(Qt.DateFormat.ISODate)
-        data = self.stats.get_minute_stats(date_str)
-        minute_distance = data.get("minute_distance", [0] * 1440)
-
-        start_hour = self.start_hour_combo.currentIndex()
-        end_hour = self.end_hour_combo.currentIndex()
-        if end_hour <= start_hour:
-            end_hour = start_hour + 1
-
-        start_minute = start_hour * 60
-        end_minute = end_hour * 60
-
-        self.hourly_move_ax.clear()
-        x = list(range(start_minute, end_minute))
-        y = minute_distance[start_minute:end_minute]
-        self.hourly_move_ax.plot(x, y, linewidth=0.5, alpha=0.8, color='green')
-        self.hourly_move_ax.fill_between(x, y, alpha=0.3, color='green')
-        self.hourly_move_ax.set_title(f"{date_str} {start_hour:02d}:00-{end_hour:02d}:00 每分钟鼠标移动距离")
-        self.hourly_move_ax.set_xlabel("时间 (分钟)")
-        self.hourly_move_ax.set_ylabel("移动距离 (像素)")
-        self.hourly_move_ax.grid(True, alpha=0.3)
-
-        hour_range = end_hour - start_hour
-        if hour_range <= 4:
-            tick_step = 1
-        elif hour_range <= 8:
-            tick_step = 2
-        else:
-            tick_step = 4
-
-        hour_positions = [h * 60 for h in range(start_hour, end_hour + 1, tick_step)]
-        hour_labels = [f"{h:02d}:00" for h in range(start_hour, end_hour + 1, tick_step)]
-        self.hourly_move_ax.set_xticks(hour_positions)
-        self.hourly_move_ax.set_xticklabels(hour_labels, rotation=45)
-        self.hourly_move_figure.tight_layout()
-        self.hourly_move_canvas.draw()
-
-    def update_daily_move_chart(self):
-        if not HAS_MATPLOTLIB:
-            return
-
-        text = self.range_combo.currentText()
-        today = datetime.date.today()
-
-        if text == "最近7天":
-            end = today.isoformat()
-            start = (today - datetime.timedelta(days=6)).isoformat()
-        elif text == "最近30天":
-            end = today.isoformat()
-            start = (today - datetime.timedelta(days=29)).isoformat()
-        else:
-            start = self.start_date.date().toString(Qt.DateFormat.ISODate)
-            end = self.end_date.date().toString(Qt.DateFormat.ISODate)
-
-        daily_data = self.stats.get_daily_totals(start, end)
-
-        self.daily_move_ax.clear()
-        dates = [d["date"] for d in daily_data]
-        distances = [d["total_distance"] for d in daily_data]
-
-        self.daily_move_ax.bar(range(len(dates)), distances, alpha=0.7, color='forestgreen')
-        self.daily_move_ax.plot(range(len(dates)), distances, marker='s', color='darkgreen', linewidth=2, markersize=4)
-        self.daily_move_ax.set_title(f"{start} 至 {end} 每日鼠标移动距离")
-        self.daily_move_ax.set_xlabel("日期")
-        self.daily_move_ax.set_ylabel("移动距离 (像素)")
-        self.daily_move_ax.grid(True, alpha=0.3, axis='y')
-
-        if len(dates) > 10:
-            tick_step = len(dates) // 7
-            tick_labels = [dates[i] if i % tick_step == 0 else "" for i in range(len(dates))]
-            self.daily_move_ax.set_xticks(range(len(dates)))
-            self.daily_move_ax.set_xticklabels(tick_labels, rotation=45)
-        else:
-            self.daily_move_ax.set_xticks(range(len(dates)))
-            self.daily_move_ax.set_xticklabels(dates, rotation=45)
-
-        self.daily_move_figure.tight_layout()
-        self.daily_move_canvas.draw()
-
     def export_csv(self):
         today = datetime.date.today()
 
@@ -406,22 +281,13 @@ class StatsChartWindow(QWidget):
             if end_hour <= start_hour:
                 end_hour = start_hour + 1
 
-            if self.data_type == "key":
-                minutes = data.get("minutes", [0] * 1440)
-                lines = ["时间,按键次数"]
-                for m in range(start_hour * 60, end_hour * 60):
-                    hour = m // 60
-                    minute = m % 60
-                    lines.append(f"{hour:02d}:{minute:02d},{minutes[m]}")
-                filename = f"minute_key_stats_{date_str}_{start_hour:02d}_{end_hour:02d}.csv"
-            else:
-                minute_distance = data.get("minute_distance", [0] * 1440)
-                lines = ["时间,移动距离(像素)"]
-                for m in range(start_hour * 60, end_hour * 60):
-                    hour = m // 60
-                    minute = m % 60
-                    lines.append(f"{hour:02d}:{minute:02d},{minute_distance[m]}")
-                filename = f"minute_move_stats_{date_str}_{start_hour:02d}_{end_hour:02d}.csv"
+            minutes = data.get("minutes", [0] * 1440)
+            lines = ["时间,按键次数"]
+            for m in range(start_hour * 60, end_hour * 60):
+                hour = m // 60
+                minute = m % 60
+                lines.append(f"{hour:02d}:{minute:02d},{minutes[m]}")
+            filename = f"minute_key_stats_{date_str}_{start_hour:02d}_{end_hour:02d}.csv"
         else:
             text = self.range_combo.currentText()
 
@@ -437,16 +303,10 @@ class StatsChartWindow(QWidget):
 
             daily_data = self.stats.get_daily_totals(start, end)
 
-            if self.data_type == "key":
-                lines = ["日期,按键次数"]
-                for d in daily_data:
-                    lines.append(f"{d['date']},{d['total']}")
-                filename = f"daily_key_stats_{start}_to_{end}.csv"
-            else:
-                lines = ["日期,移动距离(像素)"]
-                for d in daily_data:
-                    lines.append(f"{d['date']},{d['total_distance']}")
-                filename = f"daily_move_stats_{start}_to_{end}.csv"
+            lines = ["日期,按键次数"]
+            for d in daily_data:
+                lines.append(f"{d['date']},{d['total']}")
+            filename = f"daily_key_stats_{start}_to_{end}.csv"
 
         path, _ = QFileDialog.getSaveFileName(self, "导出CSV", filename, "CSV Files (*.csv)")
         if path:
